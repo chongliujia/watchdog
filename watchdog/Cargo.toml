@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 sysinfo="0.29"
+serde_json="1.0.108"
+serde="1.0.193"

@@ -1,5 +1,9 @@
 use sysinfo::{CpuExt, System, SystemExt, ProcessExt, DiskExt, NetworksExt, NetworkExt};
 use std::{thread, time};
+use serde_json::json;
+use std::fs::File;
+use std::io::Write;
+use serde::ser::{Serialize, Serializer, SerializeStruct};
 
 fn main() {
     let mut sys = System::new_all();
@@ -39,25 +43,45 @@ fn main() {
 
         println!("NB CPUs: {}", sys.cpus().len());
 
-        /*
+
 
         for (pid, process) in sys.processes() {
             println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
         }
-        */
 
-        println!("{:<20} {:>15} {:>15}", "Network Interface", "Received (KB)", "Transmitted (KB)");
-        for (interface_name, data) in sys.networks() {
-            println!("{:<20} {:>15} {:>15}",
-                interface_name,
-                data.received() / 1024,
-                data.transmitted() / 1024
-                );
+        let processes_info: Vec<_> = sys.processes()
+            .iter()
+            .map(|(&pid, process)| {
+                json!({
+                    "pid": serialize_pid(&pid),
+                    "name": process.name(),
+                    "disk_usage": {
+                        "read_bytes": process.disk_usage().read_bytes,
+                        "written_bytes": process.disk_usage().written_bytes
+                    }
+
+                })
+
+            })
+            .collect();
+
+        let json_string = serde_json::to_string(&processes_info).unwrap();
+        let mut file = File::create("processes_info.json").unwrap();
+
+        writeln!(file, "{}", json_string).unwrap();
 
 
-        }
 
         thread::sleep(time::Duration::from_secs(5));
     }
     
+}
+
+fn serialize_pid<S>(pid: &sysinfo::Pid, serializer: S) -> Result<S::Ok, S::Error>
+where 
+    S: Serializer,
+{
+    let pid = *pid as i32;
+    serializer.serialize_i32(pid)
+
 }
